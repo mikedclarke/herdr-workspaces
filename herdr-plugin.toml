@@ -1,0 +1,27 @@
+id = "mikedclarke.herdr-workspaces"
+name = "Workspaces"
+# Keep in sync with `version` in main.go.
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Directories as workspaces: register the places you work, fuzzy-pick one, and get a named herdr workspace rooted there."
+platforms = ["linux", "macos"]
+
+[[build]]
+platforms = ["linux", "macos"]
+command = ["sh", "scripts/build.sh"]
+
+# The picker. The action runs server-side (no terminal), so it asks herdr to
+# host the `picker` pane entrypoint below as a zoomed plugin pane.
+[[actions]]
+id = "workspaces"
+title = "Workspaces: Open"
+platforms = ["linux", "macos"]
+contexts = ["global"]
+command = ["./bin/herdr-workspaces", "picker"]
+
+[[panes]]
+id = "picker"
+title = "Workspaces"
+placement = "zoomed"
+platforms = ["linux", "macos"]
+command = ["./bin/herdr-workspaces", "picker-ui"]

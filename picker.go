@@ -1,0 +1,94 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+
+	tea "github.com/charmbracelet/bubbletea"
+	isatty "github.com/mattn/go-isatty"
+)
+
+const pluginID = "mikedclarke.herdr-workspaces"
+
+// cmdPicker opens the workspace picker. From a shell (both stdin and stdout
+// are a terminal) it runs the TUI right here; invoked as the manifest action
+// (server-side, no terminal) it asks herdr to host the `picker` pane
+// entrypoint instead, so herdr creates and tears down the pane.
+func cmdPicker() error {
+	if isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd()) {
+		return runPickerUI()
+	}
+	herdr := os.Getenv("HERDR_BIN_PATH")
+	if herdr == "" {
+		herdr = "herdr"
+	}
+	cmd := exec.Command(herdr, "plugin", "pane", "open",
+		"--plugin", pluginID,
+		"--entrypoint", "picker",
+		"--placement", "zoomed",
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("open picker pane: %w", err)
+	}
+	return nil
+}
+
+// runPickerUI renders the full-screen picker inside the pane herdr opens for
+// the `picker` entrypoint (which has a real terminal). When a workspace is
+// chosen it opens it; on cancel it simply exits and herdr tears the pane down.
+func runPickerUI() error {
+	workspaces, err := loadWorkspaces()
+	if err != nil {
+		// Returning the error leaves it printed in the pane, so a config
+		// mistake is readable instead of a blank flash.
+		return err
+	}
+
+	// Mouse cell motion: herdr forwards clicks and wheel events to the pane
+	// once we ask for them, so the picker works by touch as well as keys.
+	p := tea.NewProgram(newPickerModel(workspaces), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	result, err := p.Run()
+	if err != nil {
+		return err
+	}
+
+	m, ok := result.(pickerModel)
+	if !ok || m.chosen == nil {
+		return nil
+	}
+	client, err := newHerdrClient()
+	if err != nil {
+		return err
+	}
+	if err := openWorkspace(client, *m.chosen); err != nil {
+		return fmt.Errorf("open workspace %q: %w", m.chosen.Name, err)
+	}
+	return nil
+}
+
+// openWorkspace turns a registered directory into a live herdr workspace: a
+// focused workspace rooted there, labeled with the entry's name, with the
+// optional startup command run in its root pane. Creating the focused
+// workspace switches the user to it.
+func openWorkspace(client *herdrClient, w Workspace) error {
+	dir, err := w.expandedDir()
+	if err != nil {
+		return err
+	}
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		return fmt.Errorf("directory does not exist: %s", dir)
+	}
+	paneID, err := client.workspaceCreate(dir, w.Name, true)
+	if err != nil {
+		return fmt.Errorf("create workspace: %w", err)
+	}
+	if w.Command != "" {
+		if err := client.runCommand(paneID, w.Command); err != nil {
+			return fmt.Errorf("run startup command: %w", err)
+		}
+	}
+	return nil
+}

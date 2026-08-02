@@ -1,0 +1,9 @@
+bin/
+dist/
+
+# Machine-local agent instruction files — never committed.
+CLAUDE.md
+AGENTS.md
+MEMORY.md
+LEARNINGS.md
+.claude/
