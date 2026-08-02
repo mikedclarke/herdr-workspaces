@@ -7,8 +7,8 @@ Directories as workspaces for [herdr](https://herdr.dev). Register the places yo
 
 ## What it does
 
-- **Register a directory** from inside the picker (ctrl+a), from the CLI (`herdr-workspaces add ~/code/myrepo`), or by dropping a small TOML file into the config directory.
-- **Pick one** from a fuzzy-filtered list (grouped under headings if you use groups), by keyboard or mouse.
+- **Register a directory** from inside the picker (`a`), from the CLI (`herdr-workspaces add ~/code/myrepo`), or by dropping a small TOML file into the config directory. Edit (`e`) or delete (`d`) entries the same way.
+- **Pick one** from the list (grouped under headings if you use groups) by keyboard or mouse, with `/` for fuzzy filtering.
 - **Get a workspace**: a new focused herdr workspace rooted in that directory, labeled with the entry's name, optionally auto-running a startup command (your agent, an editor, a dev server) in its root pane.
 
 That's the whole plugin. It doesn't template tabs and panes, run scheduled jobs, or manage worktrees — it opens directories as workspaces, quickly.
@@ -52,17 +52,18 @@ group = "Work"                     # optional; clusters entries under a heading
 command = "claude"                 # optional; runs in the root pane once the shell is up
 ```
 
-You rarely write these by hand: press **ctrl+a** in the picker, or:
+You rarely write these by hand: press **a** (add) or **e** (edit) in the picker, or:
 
 ```bash
 herdr-workspaces add ~/code/myrepo --group Work --command claude
+herdr-workspaces edit myrepo --command "claude --continue"
 ```
 
 A malformed file fails the picker loudly, naming the file, instead of silently dropping the entry.
 
 ## Using the picker
 
-Press your keybinding. Type to filter (fuzzy, across names and descriptions), arrows or ctrl+p/ctrl+n to move, Enter or click to open, ctrl+a to add the next directory without leaving the picker, Esc to close.
+Press your keybinding. Single keys act: arrows or `j`/`k` move, **Enter** (or a click) opens, **a** adds, **e** edits, **d** deletes (with a confirm), **q**/Esc closes. Press **/** to fuzzy-filter across names and descriptions — Enter opens the top match directly, and Esc leaves the filter applied so you can act on what you found.
 
 The startup command is typed into the new workspace's root pane the way you would type it: the plugin waits for the shell prompt, types the command, waits for it to echo, and submits it with a real Enter — so it runs instead of sitting at the prompt.
 
@@ -74,6 +75,8 @@ The binary lives in the plugin directory (`bin/herdr-workspaces`); symlink it on
 herdr-workspaces picker      # the picker (opens as a herdr pane when not on a TTY)
 herdr-workspaces list        # registered workspaces
 herdr-workspaces add <dir>   # register a directory (--name --description --group --command)
+herdr-workspaces edit <name> # change an entry; only the flags you pass change
+herdr-workspaces remove <name>
 herdr-workspaces open <name> # open one now (needs to run inside herdr)
 herdr-workspaces version
 ```

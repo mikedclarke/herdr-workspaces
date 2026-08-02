@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func usage(w *os.File) {
 	fmt.Fprintln(w, `usage: herdr-workspaces <command>
@@ -20,6 +20,10 @@ func usage(w *os.File) {
     --description  shown dimmed in the picker
     --group        groups entries under a heading in the picker
     --command      run in the root pane when the workspace opens
+  edit <name>    Change a registered workspace; only the flags you pass
+                 change (--name --dir --description --group --command),
+                 and an empty value clears the field
+  remove <name>  Delete a workspace's config file
   open <name>    Open a registered workspace now (requires herdr)
   version        Print the version`)
 }
@@ -40,6 +44,17 @@ func main() {
 		err = cmdList()
 	case "add":
 		err = cmdAdd(os.Args[2:])
+	case "edit":
+		err = cmdEdit(os.Args[2:])
+	case "remove":
+		if len(os.Args) < 3 {
+			err = fmt.Errorf("remove: workspace name required")
+		} else {
+			var path string
+			if path, err = removeWorkspace(os.Args[2]); err == nil {
+				fmt.Println("removed:", path)
+			}
+		}
 	case "open":
 		if len(os.Args) < 3 {
 			err = fmt.Errorf("open: workspace name required")
@@ -120,6 +135,62 @@ func cmdAdd(args []string) error {
 	}
 	fmt.Println("added:", path)
 	return nil
+}
+
+func cmdEdit(args []string) error {
+	fs := flag.NewFlagSet("edit", flag.ExitOnError)
+	name := fs.String("name", "", "workspace name")
+	dir := fs.String("dir", "", "directory")
+	description := fs.String("description", "", "description")
+	group := fs.String("group", "", "picker group")
+	command := fs.String("command", "", "startup command")
+
+	var target string
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		target, args = args[0], args[1:]
+	}
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	switch {
+	case target == "" && fs.NArg() == 1:
+		target = fs.Arg(0)
+	case target == "" || fs.NArg() != 0:
+		return fmt.Errorf("edit: exactly one workspace name required")
+	}
+
+	workspaces, err := loadWorkspaces()
+	if err != nil {
+		return err
+	}
+	for _, w := range workspaces {
+		if w.Name != target {
+			continue
+		}
+		// Only flags the user actually passed change the entry, so an
+		// explicit empty value can clear a field.
+		fs.Visit(func(f *flag.Flag) {
+			switch f.Name {
+			case "name":
+				w.Name = *name
+			case "dir":
+				w.Dir = *dir
+			case "description":
+				w.Description = *description
+			case "group":
+				w.Group = *group
+			case "command":
+				w.Command = *command
+			}
+		})
+		path, err := updateWorkspace(w, w.source)
+		if err != nil {
+			return err
+		}
+		fmt.Println("updated:", path)
+		return nil
+	}
+	return fmt.Errorf("no workspace named %q; see `herdr-workspaces list`", target)
 }
 
 func cmdOpen(name string) error {

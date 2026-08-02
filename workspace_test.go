@@ -168,3 +168,89 @@ func TestAddWorkspaceRejects(t *testing.T) {
 		t.Error("unsluggable name: want error")
 	}
 }
+
+func TestUpdateWorkspaceInPlace(t *testing.T) {
+	withConfigDir(t)
+	target := t.TempDir()
+	if _, err := addWorkspace(Workspace{Name: "thing", Dir: target}); err != nil {
+		t.Fatal(err)
+	}
+
+	path, err := updateWorkspace(Workspace{Name: "thing", Dir: target, Command: "claude"}, "thing.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(path) != "thing.toml" {
+		t.Fatalf("path = %s, want same file", path)
+	}
+	ws, err := loadWorkspaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ws) != 1 || ws[0].Command != "claude" {
+		t.Fatalf("after update: %+v", ws)
+	}
+}
+
+func TestUpdateWorkspaceRenameMovesFile(t *testing.T) {
+	withConfigDir(t)
+	target := t.TempDir()
+	if _, err := addWorkspace(Workspace{Name: "old", Dir: target}); err != nil {
+		t.Fatal(err)
+	}
+
+	path, err := updateWorkspace(Workspace{Name: "new name", Dir: target}, "old.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(path) != "new-name.toml" {
+		t.Fatalf("path = %s, want new-name.toml", path)
+	}
+	ws, err := loadWorkspaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ws) != 1 || ws[0].Name != "new name" || ws[0].source != "new-name.toml" {
+		t.Fatalf("after rename: %+v", ws)
+	}
+}
+
+func TestUpdateWorkspaceRenameCollision(t *testing.T) {
+	withConfigDir(t)
+	target := t.TempDir()
+	if _, err := addWorkspace(Workspace{Name: "one", Dir: target}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := addWorkspace(Workspace{Name: "two", Dir: target}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := updateWorkspace(Workspace{Name: "two", Dir: target}, "one.toml"); err == nil {
+		t.Fatal("renaming over another entry: want error")
+	}
+	// Both entries must survive the refused rename.
+	ws, err := loadWorkspaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ws) != 2 {
+		t.Fatalf("after refused rename: %+v", ws)
+	}
+}
+
+func TestRemoveWorkspace(t *testing.T) {
+	withConfigDir(t)
+	target := t.TempDir()
+	if _, err := addWorkspace(Workspace{Name: "gone", Dir: target}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := removeWorkspace("nope"); err == nil {
+		t.Error("unknown name: want error")
+	}
+	if _, err := removeWorkspace("gone"); err != nil {
+		t.Fatal(err)
+	}
+	if ws, _ := loadWorkspaces(); len(ws) != 0 {
+		t.Fatalf("after remove: %+v", ws)
+	}
+}

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- Navigation-first picker keys: `enter` open, `a` add, `e` edit, `d` delete
+  (with confirm), `q` close, and `/` for the fuzzy filter. Esc leaves the
+  filter applied so a filtered entry can be edited or deleted.
+- Edit workspaces in place: the form (now including description) opens
+  prefilled and saves back to the entry's file, moving it on rename.
+- `edit` and `remove` CLI commands; `edit` changes only the flags you pass.
+
 ## 0.1.0
 
 Initial release.

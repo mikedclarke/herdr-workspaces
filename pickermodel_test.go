@@ -16,8 +16,6 @@ func key(s string) tea.Msg {
 		return tea.KeyMsg{Type: tea.KeyTab}
 	case "down":
 		return tea.KeyMsg{Type: tea.KeyDown}
-	case "ctrl+a":
-		return tea.KeyMsg{Type: tea.KeyCtrlA}
 	case "ctrl+s":
 		return tea.KeyMsg{Type: tea.KeyCtrlS}
 	}
@@ -37,33 +35,59 @@ func update(t *testing.T, m pickerModel, msgs ...tea.Msg) pickerModel {
 	return m
 }
 
+func twoWorkspaces() []Workspace {
+	return []Workspace{
+		{Name: "alpha", Dir: "~/a", source: "alpha.toml"},
+		{Name: "beta", Dir: "~/b", Description: "the b one", source: "beta.toml"},
+	}
+}
+
 func TestPickerEnterChooses(t *testing.T) {
-	m := newPickerModel([]Workspace{
-		{Name: "alpha", Dir: "~/a"},
-		{Name: "beta", Dir: "~/b"},
-	})
-	m = update(t, m, key("down"), key("enter"))
+	m := newPickerModel(twoWorkspaces())
+	m = update(t, m, key("j"), key("enter"))
 	if m.chosen == nil || m.chosen.Name != "beta" {
 		t.Fatalf("chosen = %+v, want beta", m.chosen)
 	}
 }
 
-func TestPickerEscCancels(t *testing.T) {
-	m := newPickerModel([]Workspace{{Name: "alpha", Dir: "~/a"}})
-	m = update(t, m, key("esc"))
-	if m.chosen != nil {
-		t.Fatalf("chosen = %+v, want nil after esc", m.chosen)
+func TestPickerQuitKeys(t *testing.T) {
+	for _, k := range []string{"esc", "q"} {
+		m := newPickerModel(twoWorkspaces())
+		m = update(t, m, key(k))
+		if m.chosen != nil {
+			t.Fatalf("%s: chosen = %+v, want nil", k, m.chosen)
+		}
+	}
+}
+
+func TestPickerNavKeysDoNotFilter(t *testing.T) {
+	m := newPickerModel(twoWorkspaces())
+	m = update(t, m, key("e"), key("esc"), key("a"), key("esc"))
+	if got := m.list.input.Value(); got != "" {
+		t.Fatalf("action keys leaked into the query: %q", got)
 	}
 }
 
 func TestPickerFilterThenChoose(t *testing.T) {
-	m := newPickerModel([]Workspace{
-		{Name: "alpha", Dir: "~/a"},
-		{Name: "beta", Dir: "~/b", Description: "the b one"},
-	})
-	m = update(t, m, key("bet"), key("enter"))
+	m := newPickerModel(twoWorkspaces())
+	m = update(t, m, key("/"), key("bet"), key("enter"))
 	if m.chosen == nil || m.chosen.Name != "beta" {
 		t.Fatalf("chosen = %+v, want beta", m.chosen)
+	}
+}
+
+func TestPickerFilterEscKeepsQueryThenEdit(t *testing.T) {
+	m := newPickerModel(twoWorkspaces())
+	m = update(t, m, key("/"), key("bet"), key("esc"))
+	if m.filtering {
+		t.Fatal("esc should leave filter mode")
+	}
+	if m.list.input.Value() != "bet" {
+		t.Fatalf("query = %q, want kept", m.list.input.Value())
+	}
+	m = update(t, m, key("e"))
+	if m.mode != modeForm || m.form.source != "beta.toml" {
+		t.Fatalf("e after filtering: mode=%v source=%q", m.mode, m.form.source)
 	}
 }
 
@@ -92,9 +116,9 @@ func TestPickerAddFlow(t *testing.T) {
 	target := t.TempDir()
 
 	m := newPickerModel(nil)
-	m = update(t, m, key("ctrl+a"))
-	if m.mode != modeAdd {
-		t.Fatal("ctrl+a should enter add mode")
+	m = update(t, m, key("a"))
+	if m.mode != modeForm {
+		t.Fatal("a should enter the add form")
 	}
 
 	// Type the directory, tab away (prefills the name), save.
@@ -108,13 +132,70 @@ func TestPickerAddFlow(t *testing.T) {
 
 	// A second add of the same directory collides on the slug and stays in
 	// the form with the error shown.
-	m = update(t, m, key("ctrl+a"), key(target), key("ctrl+s"))
-	if m.mode != modeAdd || m.form.errMsg == "" {
+	m = update(t, m, key("a"), key(target), key("ctrl+s"))
+	if m.mode != modeForm || m.form.errMsg == "" {
 		t.Fatalf("duplicate add: mode = %v, err = %q", m.mode, m.form.errMsg)
 	}
 	m = update(t, m, key("esc"))
 	if m.mode != modeList {
-		t.Fatal("esc should leave the add form")
+		t.Fatal("esc should leave the form")
+	}
+}
+
+func TestPickerEditFlow(t *testing.T) {
+	withConfigDir(t)
+	target := t.TempDir()
+	if _, err := addWorkspace(Workspace{Name: "thing", Dir: target}); err != nil {
+		t.Fatal(err)
+	}
+	workspaces, err := loadWorkspaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m := newPickerModel(workspaces)
+	m = update(t, m, key("e"))
+	if m.mode != modeForm || m.form.source != "thing.toml" {
+		t.Fatalf("edit form: mode=%v source=%q", m.mode, m.form.source)
+	}
+	if got := m.form.inputs[fieldDir].Value(); got != target {
+		t.Fatalf("dir not prefilled: %q", got)
+	}
+
+	// Move to the command field and set it.
+	m = update(t, m, key("tab"), key("tab"), key("tab"), key("tab"), key("claude"), key("enter"))
+	if m.mode != modeList {
+		t.Fatalf("after save mode = %v, err = %q", m.mode, m.form.errMsg)
+	}
+	if len(m.workspaces) != 1 || m.workspaces[0].Command != "claude" {
+		t.Fatalf("edited entry = %+v", m.workspaces)
+	}
+}
+
+func TestPickerDeleteFlow(t *testing.T) {
+	withConfigDir(t)
+	target := t.TempDir()
+	if _, err := addWorkspace(Workspace{Name: "gone", Dir: target}); err != nil {
+		t.Fatal(err)
+	}
+	workspaces, err := loadWorkspaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Any key but y cancels.
+	m := newPickerModel(workspaces)
+	m = update(t, m, key("d"), key("n"))
+	if m.mode != modeList || len(m.workspaces) != 1 {
+		t.Fatalf("cancelled delete: mode=%v n=%d", m.mode, len(m.workspaces))
+	}
+
+	m = update(t, m, key("d"), key("y"))
+	if m.mode != modeList || len(m.workspaces) != 0 {
+		t.Fatalf("confirmed delete: mode=%v n=%d", m.mode, len(m.workspaces))
+	}
+	if ws, _ := loadWorkspaces(); len(ws) != 0 {
+		t.Fatalf("file not removed: %+v", ws)
 	}
 }
 

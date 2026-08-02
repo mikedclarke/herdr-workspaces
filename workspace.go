@@ -27,21 +27,28 @@ type Workspace struct {
 
 // configBaseDir returns the plugin's config root. When herdr runs us it sets
 // HERDR_PLUGIN_CONFIG_DIR to the herdr-managed per-plugin directory — the
-// canonical home, provisioned and isolated by herdr. Outside herdr (dev,
-// tests, a bare shell) fall back to ~/.config/herdr-workspaces, honoring
-// $XDG_CONFIG_HOME.
+// canonical home, provisioned and isolated by herdr. From a plain shell that
+// variable is absent, so the herdr-managed directory is used whenever it
+// already exists — the CLI must see the same entries the picker does — and
+// only failing that does ~/.config/herdr-workspaces apply (dev, tests,
+// no herdr install), honoring $XDG_CONFIG_HOME throughout.
 func configBaseDir() (string, error) {
 	if d := os.Getenv("HERDR_PLUGIN_CONFIG_DIR"); d != "" {
 		return d, nil
 	}
-	if x := os.Getenv("XDG_CONFIG_HOME"); x != "" {
-		return filepath.Join(x, "herdr-workspaces"), nil
+	root := os.Getenv("XDG_CONFIG_HOME")
+	if root == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		root = filepath.Join(home, ".config")
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
+	managed := filepath.Join(root, "herdr", "plugins", "config", pluginID)
+	if fi, err := os.Stat(managed); err == nil && fi.IsDir() {
+		return managed, nil
 	}
-	return filepath.Join(home, ".config", "herdr-workspaces"), nil
+	return filepath.Join(root, "herdr-workspaces"), nil
 }
 
 func workspacesConfigDir() (string, error) {
@@ -169,11 +176,10 @@ func slugify(name string) string {
 	return b.String()
 }
 
-// addWorkspace validates a new entry and writes it as <slug>.toml in the
-// config directory, returning the file's path. Unlike loading, adding checks
-// the directory exists — catching a typo at entry time — and refuses to
-// overwrite an existing file.
-func addWorkspace(w Workspace) (string, error) {
+// prepareSave validates an entry about to be written and returns its target
+// path. Unlike loading, saving checks the directory exists — catching a typo
+// at entry time.
+func prepareSave(w *Workspace) (string, error) {
 	if err := w.normalize(); err != nil {
 		return "", fmt.Errorf("dir is required")
 	}
@@ -184,7 +190,6 @@ func addWorkspace(w Workspace) (string, error) {
 	if fi, err := os.Stat(expanded); err != nil || !fi.IsDir() {
 		return "", fmt.Errorf("not a directory: %s", expanded)
 	}
-
 	slug := slugify(w.Name)
 	if slug == "" {
 		return "", fmt.Errorf("name %q has no usable characters for a filename", w.Name)
@@ -193,17 +198,88 @@ func addWorkspace(w Workspace) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	path := filepath.Join(dir, slug+".toml")
+	return filepath.Join(dir, slug+".toml"), nil
+}
+
+func writeWorkspaceTOML(w Workspace, path string) error {
+	var buf strings.Builder
+	if err := toml.NewEncoder(&buf).Encode(w); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(buf.String()), 0o644)
+}
+
+// addWorkspace writes a new entry as <slug>.toml in the config directory,
+// returning the file's path. It refuses to overwrite an existing file.
+func addWorkspace(w Workspace) (string, error) {
+	path, err := prepareSave(&w)
+	if err != nil {
+		return "", err
+	}
 	if _, err := os.Stat(path); err == nil {
 		return "", fmt.Errorf("workspace file already exists: %s", path)
 	}
-
-	var buf strings.Builder
-	if err := toml.NewEncoder(&buf).Encode(w); err != nil {
-		return "", err
-	}
-	if err := os.WriteFile(path, []byte(buf.String()), 0o644); err != nil {
+	if err := writeWorkspaceTOML(w, path); err != nil {
 		return "", err
 	}
 	return path, nil
+}
+
+// updateWorkspace rewrites the file an entry was loaded from (source, its
+// filename within the config directory). A rename that changes the slug moves
+// the entry to the new filename — refusing to clobber a different existing
+// entry — and removes the old file.
+func updateWorkspace(w Workspace, source string) (string, error) {
+	if source == "" {
+		return "", fmt.Errorf("update: missing source file")
+	}
+	path, err := prepareSave(&w)
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Dir(path)
+	oldPath := filepath.Join(dir, source)
+	if path != oldPath {
+		if _, err := os.Stat(path); err == nil {
+			return "", fmt.Errorf("workspace file already exists: %s", path)
+		}
+	}
+	if err := writeWorkspaceTOML(w, path); err != nil {
+		return "", err
+	}
+	if path != oldPath {
+		if err := os.Remove(oldPath); err != nil {
+			return "", fmt.Errorf("renamed to %s but could not remove old file: %w", path, err)
+		}
+	}
+	return path, nil
+}
+
+// removeWorkspace deletes the named entry's config file.
+func removeWorkspace(name string) (string, error) {
+	workspaces, err := loadWorkspaces()
+	if err != nil {
+		return "", err
+	}
+	for _, w := range workspaces {
+		if w.Name == name {
+			dir, err := workspacesConfigDir()
+			if err != nil {
+				return "", err
+			}
+			path := filepath.Join(dir, w.source)
+			return path, removeWorkspaceFile(w.source)
+		}
+	}
+	return "", fmt.Errorf("no workspace named %q; see `herdr-workspaces list`", name)
+}
+
+// removeWorkspaceFile deletes one entry's file by its filename within the
+// config directory.
+func removeWorkspaceFile(source string) error {
+	dir, err := workspacesConfigDir()
+	if err != nil {
+		return err
+	}
+	return os.Remove(filepath.Join(dir, source))
 }

@@ -1,7 +1,7 @@
 id = "mikedclarke.herdr-workspaces"
 name = "Workspaces"
 # Keep in sync with `version` in main.go.
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.7.0"
 description = "Directories as workspaces: register the places you work, fuzzy-pick one, and get a named herdr workspace rooted there."
 platforms = ["linux", "macos"]
