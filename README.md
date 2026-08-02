@@ -12,8 +12,6 @@ Directories as workspaces for [herdr](https://herdr.dev). Register the places yo
 - **Pick one** from a grouped list, by keyboard or mouse, with fuzzy filtering.
 - **Get a workspace**: a new focused herdr workspace rooted in that directory, labeled with the entry's name, optionally auto-running a startup command (your agent, an editor, a dev server) in its root pane.
 
-That's the whole plugin. It doesn't template tabs and panes, run scheduled jobs, or manage worktrees. It opens directories as workspaces, quickly.
-
 ## Install
 
 Requires herdr ≥ 0.7.0 on Linux or macOS.
