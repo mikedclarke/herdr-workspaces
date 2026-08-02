@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,7 +18,7 @@ const pluginID = "mikedclarke.herdr-workspaces"
 // entrypoint instead, so herdr creates and tears down the pane.
 func cmdPicker() error {
 	if isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd()) {
-		return runPickerUI()
+		return runPicker(false)
 	}
 	herdr := os.Getenv("HERDR_BIN_PATH")
 	if herdr == "" {
@@ -36,15 +37,20 @@ func cmdPicker() error {
 	return nil
 }
 
-// runPickerUI renders the full-screen picker inside the pane herdr opens for
-// the `picker` entrypoint (which has a real terminal). When a workspace is
-// chosen it opens it; on cancel it simply exits and herdr tears the pane down.
+// runPickerUI is the manifest's pane entrypoint: the picker hosted by herdr
+// in a zoomed plugin pane.
 func runPickerUI() error {
+	return runPicker(true)
+}
+
+// runPicker renders the full-screen picker. When a workspace is chosen it
+// opens it; on cancel it simply exits. hosted marks the herdr-hosted pane,
+// which is torn down the moment this process exits — there an error must wait
+// for a keypress or it vanishes before it can be read.
+func runPicker(hosted bool) error {
 	workspaces, err := loadWorkspaces()
 	if err != nil {
-		// Returning the error leaves it printed in the pane, so a config
-		// mistake is readable instead of a blank flash.
-		return err
+		return holdError(hosted, err)
 	}
 
 	// Mouse cell motion: herdr forwards clicks and wheel events to the pane
@@ -52,7 +58,7 @@ func runPickerUI() error {
 	p := tea.NewProgram(newPickerModel(workspaces), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	result, err := p.Run()
 	if err != nil {
-		return err
+		return holdError(hosted, err)
 	}
 
 	m, ok := result.(pickerModel)
@@ -61,12 +67,26 @@ func runPickerUI() error {
 	}
 	client, err := newHerdrClient()
 	if err != nil {
-		return err
+		return holdError(hosted, err)
 	}
 	if err := openWorkspace(client, *m.chosen); err != nil {
-		return fmt.Errorf("open workspace %q: %w", m.chosen.Name, err)
+		return holdError(hosted, fmt.Errorf("open workspace %q: %w", m.chosen.Name, err))
 	}
 	return nil
+}
+
+// holdError keeps a hosted pane alive until Enter so the error is readable;
+// herdr closes the pane when the process exits, which would otherwise reduce
+// the message to a flash. Outside a hosted pane the shell keeps the output on
+// screen, so the error passes straight through.
+func holdError(hosted bool, err error) error {
+	if !hosted {
+		return err
+	}
+	fmt.Fprintln(os.Stderr, "herdr-workspaces:", err)
+	fmt.Fprint(os.Stderr, "\npress enter to close ")
+	bufio.NewReader(os.Stdin).ReadString('\n')
+	return err
 }
 
 // openWorkspace turns a registered directory into a live herdr workspace: a
