@@ -11,7 +11,7 @@ import (
 
 // listItem is one row in a fuzzyList. A selectable row shows a name (with
 // fuzzy matches highlighted) plus an optional dim description, and carries ref
-// — the caller's index for the row. A row with selectable=false is a group
+// (the caller's index for the row). A row with selectable=false is a group
 // heading: skipped during navigation and hidden while filtering.
 type listItem struct {
 	name       string
@@ -49,7 +49,7 @@ func newFuzzyList(placeholder string, items []listItem) fuzzyList {
 }
 
 // filter recomputes the visible rows from the current query. An empty query
-// shows every item — headings included — in natural order. A non-empty query
+// shows every item, headings included, in natural order. A non-empty query
 // fuzzy-matches the selectable items against name and description together,
 // highlighting only the matches that land inside the name.
 func (l *fuzzyList) filter() {

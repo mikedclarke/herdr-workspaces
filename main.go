@@ -107,7 +107,7 @@ func cmdAdd(args []string) error {
 	group := fs.String("group", "", "picker group")
 	command := fs.String("command", "", "startup command")
 	// flag.Parse stops at the first non-flag argument, so peel a leading
-	// directory off first — both `add <dir> --group X` and `add --group X
+	// directory off first, so both `add <dir> --group X` and `add --group X
 	// <dir>` work.
 	var dir string
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {

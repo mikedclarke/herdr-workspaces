@@ -91,7 +91,7 @@ func (c *herdrClient) workspaceCreate(cwd, label string, focus bool) (paneID str
 
 // sendInput types text into a pane and then presses the given keys, as if at
 // the keyboard. To run a shell command, pass the command as text and "Enter"
-// as the sole key — herdr pastes text, and once the shell's line editor is
+// as the sole key: herdr pastes text, and once the shell's line editor is
 // active an embedded "\n" is inserted literally instead of submitting.
 func (c *herdrClient) sendInput(paneID, text string, keys ...string) error {
 	params := map[string]any{
@@ -127,7 +127,7 @@ func (c *herdrClient) paneRead(paneID string, lines int) (string, error) {
 // itself to the shell's startup so the command actually runs instead of
 // sitting unsubmitted at the prompt. Two startup races are dodged: typing
 // before the shell exists (keystrokes dropped), and pressing Enter before the
-// line editor holds the text (line lost). Every wait is best effort — on
+// line editor holds the text (line lost). Every wait is best effort; on
 // timeout we proceed anyway, so a slow shell degrades to blind typing rather
 // than hanging.
 func (c *herdrClient) runCommand(paneID, command string) error {

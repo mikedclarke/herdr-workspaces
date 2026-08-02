@@ -26,10 +26,10 @@ type Workspace struct {
 }
 
 // configBaseDir returns the plugin's config root. When herdr runs us it sets
-// HERDR_PLUGIN_CONFIG_DIR to the herdr-managed per-plugin directory — the
+// HERDR_PLUGIN_CONFIG_DIR to the herdr-managed per-plugin directory, the
 // canonical home, provisioned and isolated by herdr. From a plain shell that
 // variable is absent, so the herdr-managed directory is used whenever it
-// already exists — the CLI must see the same entries the picker does — and
+// already exists (the CLI must see the same entries the picker does), and
 // only failing that does ~/.config/herdr-workspaces apply (dev, tests,
 // no herdr install), honoring $XDG_CONFIG_HOME throughout.
 func configBaseDir() (string, error) {
@@ -60,7 +60,7 @@ func workspacesConfigDir() (string, error) {
 }
 
 // ensureWorkspacesDir makes sure the workspaces directory exists and returns
-// its path. It is never seeded: an empty directory is meaningful — it triggers
+// its path. It is never seeded: an empty directory is meaningful, it triggers
 // the picker's onboarding empty state.
 func ensureWorkspacesDir() (string, error) {
 	dir, err := workspacesConfigDir()
@@ -115,7 +115,7 @@ func loadWorkspaces() ([]Workspace, error) {
 }
 
 // normalize validates the workspace and fills the name default (the
-// directory's basename). The directory is not checked for existence here —
+// directory's basename). The directory is not checked for existence here:
 // that is a per-open concern (it might exist on one machine but not another).
 func (w *Workspace) normalize() error {
 	w.Dir = strings.TrimSpace(w.Dir)
@@ -177,7 +177,7 @@ func slugify(name string) string {
 }
 
 // prepareSave validates an entry about to be written and returns its target
-// path. Unlike loading, saving checks the directory exists — catching a typo
+// path. Unlike loading, saving checks the directory exists, catching a typo
 // at entry time.
 func prepareSave(w *Workspace) (string, error) {
 	if err := w.normalize(); err != nil {
@@ -227,8 +227,8 @@ func addWorkspace(w Workspace) (string, error) {
 
 // updateWorkspace rewrites the file an entry was loaded from (source, its
 // filename within the config directory). A rename that changes the slug moves
-// the entry to the new filename — refusing to clobber a different existing
-// entry — and removes the old file.
+// the entry to the new filename, refusing to clobber a different existing
+// entry, and removes the old file.
 func updateWorkspace(w Workspace, source string) (string, error) {
 	if source == "" {
 		return "", fmt.Errorf("update: missing source file")

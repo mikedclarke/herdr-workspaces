@@ -299,8 +299,8 @@ func (m pickerModel) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// saveForm validates the form and writes the workspace file — a new entry, or
-// the edited entry's own file — returning to a refreshed list on success and
+// saveForm validates the form and writes the workspace file (a new entry, or
+// the edited entry's own file), returning to a refreshed list on success and
 // surfacing the error in place on failure.
 func (m pickerModel) saveForm() (tea.Model, tea.Cmd) {
 	var err error

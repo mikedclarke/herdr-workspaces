@@ -1,9 +1,14 @@
+# Agent/editor instruction files, never published
+CLAUDE.md
+AGENTS.md
+.claude/
+MEMORY.md
+LEARNINGS.md
+
+# Build artifacts
 bin/
 dist/
 
-# Machine-local agent instruction files — never committed.
-CLAUDE.md
-AGENTS.md
-MEMORY.md
-LEARNINGS.md
-.claude/
+# Local environment
+.env
+.DS_Store

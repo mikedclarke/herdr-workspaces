@@ -109,7 +109,7 @@ func TestSlugify(t *testing.T) {
 		{"engineer", "engineer"},
 		{"My Repo", "my-repo"},
 		{"a  b--c", "a-b-c"},
-		{"  Client Ops!  ", "client-ops"},
+		{"  Side Projects!  ", "side-projects"},
 		{"···", ""},
 	}
 	for _, c := range cases {

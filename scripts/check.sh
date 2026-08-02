@@ -1,6 +1,6 @@
 #!/bin/sh
 # The pre-release gate: formatting, vet, and the race-enabled test run. This
-# repository has no CI by design, so this script is the contract — run it
+# repository has no CI by design, so this script is the contract: run it
 # before opening a pull request and before cutting a release.
 set -e
 cd "$(dirname "$0")/.."

@@ -45,7 +45,7 @@ func runPickerUI() error {
 
 // runPicker renders the full-screen picker. When a workspace is chosen it
 // opens it; on cancel it simply exits. hosted marks the herdr-hosted pane,
-// which is torn down the moment this process exits — there an error must wait
+// which is torn down the moment this process exits; there an error must wait
 // for a keypress or it vanishes before it can be read.
 func runPicker(hosted bool) error {
 	workspaces, err := loadWorkspaces()
