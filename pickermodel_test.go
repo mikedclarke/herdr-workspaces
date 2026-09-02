@@ -16,6 +16,10 @@ func key(s string) tea.Msg {
 		return tea.KeyMsg{Type: tea.KeyTab}
 	case "down":
 		return tea.KeyMsg{Type: tea.KeyDown}
+	case "right":
+		return tea.KeyMsg{Type: tea.KeyRight}
+	case "backspace":
+		return tea.KeyMsg{Type: tea.KeyBackspace}
 	case "ctrl+s":
 		return tea.KeyMsg{Type: tea.KeyCtrlS}
 	}
@@ -57,6 +61,49 @@ func TestPickerQuitKeys(t *testing.T) {
 		if m.chosen != nil {
 			t.Fatalf("%s: chosen = %+v, want nil", k, m.chosen)
 		}
+	}
+}
+
+func TestPickerRightArrowNamesSession(t *testing.T) {
+	// Right arrow on beta opens the naming prompt prefilled with the name;
+	// a typed suffix rides along as the session label, the entry unchanged.
+	m := newPickerModel(twoWorkspaces())
+	m = update(t, m, key("j"), key("right"))
+	if m.mode != modeLabel || m.labelRef != 1 {
+		t.Fatalf("right: mode=%v ref=%d, want modeLabel on beta", m.mode, m.labelRef)
+	}
+	if got := m.labelInput.Value(); got != "beta" {
+		t.Fatalf("prompt prefill = %q, want beta", got)
+	}
+	m = update(t, m, key("-2"), key("enter"))
+	if m.chosen == nil || m.chosen.Name != "beta" {
+		t.Fatalf("chosen = %+v, want beta", m.chosen)
+	}
+	if m.chosenLabel != "beta-2" {
+		t.Fatalf("chosenLabel = %q, want beta-2", m.chosenLabel)
+	}
+}
+
+func TestPickerLabelEscBacksOut(t *testing.T) {
+	m := newPickerModel(twoWorkspaces())
+	m = update(t, m, key("right"), key("esc"))
+	if m.mode != modeList || m.chosen != nil {
+		t.Fatalf("esc from naming: mode=%v chosen=%+v", m.mode, m.chosen)
+	}
+}
+
+func TestPickerLabelClearedFallsBack(t *testing.T) {
+	// Clearing the prompt entirely opens with an empty override, so open
+	// falls back to the entry's own name.
+	m := newPickerModel(twoWorkspaces())
+	m = update(t, m, key("right"),
+		key("backspace"), key("backspace"), key("backspace"), key("backspace"), key("backspace"),
+		key("enter"))
+	if m.chosen == nil || m.chosen.Name != "alpha" {
+		t.Fatalf("chosen = %+v, want alpha", m.chosen)
+	}
+	if m.chosenLabel != "" {
+		t.Fatalf("chosenLabel = %q, want empty (fallback to name)", m.chosenLabel)
 	}
 }
 

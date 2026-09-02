@@ -69,7 +69,7 @@ func runPicker(hosted bool) error {
 	if err != nil {
 		return holdError(hosted, err)
 	}
-	if err := openWorkspace(client, *m.chosen); err != nil {
+	if err := openWorkspace(client, *m.chosen, m.chosenLabel); err != nil {
 		return holdError(hosted, fmt.Errorf("open workspace %q: %w", m.chosen.Name, err))
 	}
 	return nil
@@ -90,10 +90,11 @@ func holdError(hosted bool, err error) error {
 }
 
 // openWorkspace turns a registered directory into a live herdr workspace: a
-// focused workspace rooted there, labeled with the entry's name, with the
-// optional startup command run in its root pane. Creating the focused
-// workspace switches the user to it.
-func openWorkspace(client *herdrClient, w Workspace) error {
+// focused workspace rooted there, with the optional startup command run in its
+// root pane. Creating the focused workspace switches the user to it. label is
+// this session's workspace label; empty falls back to the entry's name, so a
+// second session in the same directory can be named apart from the first.
+func openWorkspace(client *herdrClient, w Workspace, label string) error {
 	dir, err := w.expandedDir()
 	if err != nil {
 		return err
@@ -101,7 +102,10 @@ func openWorkspace(client *herdrClient, w Workspace) error {
 	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 		return fmt.Errorf("directory does not exist: %s", dir)
 	}
-	paneID, err := client.workspaceCreate(dir, w.Name, true)
+	if label == "" {
+		label = w.Name
+	}
+	paneID, err := client.workspaceCreate(dir, label, true)
 	if err != nil {
 		return fmt.Errorf("create workspace: %w", err)
 	}

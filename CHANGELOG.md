@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Name a session on open: press `→` (right arrow) on a picker entry for a
+  one-line prompt, prefilled with the entry's name, to label this session
+  apart from one already running in the same directory. The label is for this
+  open only; the registered entry is untouched, and a cleared prompt falls
+  back to the name.
+- `open --label <label>` does the same from the CLI.
+
 ## 0.2.0
 
 - Navigation-first picker keys: `enter` open, `a` add, `e` edit, `d` delete

@@ -48,6 +48,7 @@ Press your keybinding. Single keys act:
 | key | action |
 | --- | --- |
 | `enter` (or click) | open the selected workspace |
+| `→` (right arrow) | name this session, then open |
 | `j` / `k` / arrows | move |
 | `/` | fuzzy-filter names and descriptions |
 | `a` | add a directory |
@@ -56,6 +57,10 @@ Press your keybinding. Single keys act:
 | `q` / `esc` | close |
 
 While filtering, Enter opens the top match directly, and Esc leaves the filter applied so you can act on what you found (for example `/cli` Esc `e` to edit the first match).
+
+### Naming a session
+
+`enter` opens a workspace labeled with the entry's name. When you want a second session in the same directory (one is already running and you would rather not open another with the same label), press `→` on the entry instead: a one-line prompt opens, prefilled with the entry's name and the cursor at the end, so you can tack on a suffix like `-2` and press Enter. The label applies to this session only; the registered entry is untouched. Clearing the prompt and pressing Enter falls back to the entry's name, the same as `enter`.
 
 The startup command is typed into the new workspace's root pane the way you would type it: the plugin waits for the shell prompt, types the command, waits for it to echo, and submits it with a real Enter, so it runs instead of sitting at the prompt.
 
@@ -83,7 +88,7 @@ herdr-workspaces list          # registered workspaces
 herdr-workspaces add <dir>     # register a directory (--name --description --group --command)
 herdr-workspaces edit <name>   # change an entry; only the flags you pass change
 herdr-workspaces remove <name> # delete an entry's config file
-herdr-workspaces open <name>   # open one now (needs to run inside herdr)
+herdr-workspaces open <name>   # open one now, --label sets this session's name (needs herdr)
 herdr-workspaces version
 ```
 

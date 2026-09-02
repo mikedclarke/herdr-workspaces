@@ -16,6 +16,7 @@ const (
 	modeList pickerMode = iota
 	modeForm
 	modeConfirmDelete
+	modeLabel
 )
 
 // pickerHeaderLines is how many lines view() renders above the fuzzy list:
@@ -34,9 +35,14 @@ type pickerModel struct {
 	mode       pickerMode
 	form       addForm
 	deleteRef  int // pending delete, index into workspaces
+	labelInput textinput.Model
+	labelRef   int // entry being named, index into workspaces
 	chosen     *Workspace
-	width      int
-	height     int
+	// chosenLabel overrides the herdr workspace label for this open only,
+	// leaving the entry's stored name untouched. Empty means use the name.
+	chosenLabel string
+	width       int
+	height      int
 }
 
 func newPickerModel(workspaces []Workspace) pickerModel {
@@ -106,6 +112,8 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateForm(msg)
 	case modeConfirmDelete:
 		return m.updateConfirmDelete(msg)
+	case modeLabel:
+		return m.updateLabel(msg)
 	}
 	return m.updateList(msg)
 }
@@ -139,6 +147,8 @@ func (m pickerModel) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "enter":
 			return m.activate()
+		case "right":
+			return m.enterLabel()
 		case "/":
 			m.filtering = true
 			m.list.input.Focus()
@@ -208,6 +218,56 @@ func (m pickerModel) activate() (tea.Model, tea.Cmd) {
 	w := m.workspaces[ref]
 	m.chosen = &w
 	return m, tea.Quit
+}
+
+// enterLabel opens the one-field prompt for naming this session, prefilled
+// with the entry's own name and the cursor at the end so tacking on a suffix
+// (a second session in the same directory) is the quick path. With nothing
+// selectable it is a no-op.
+func (m pickerModel) enterLabel() (tea.Model, tea.Cmd) {
+	ref := m.list.selectedRef()
+	if ref < 0 {
+		return m, nil
+	}
+	m.mode = modeLabel
+	m.labelRef = ref
+	ti := textinput.New()
+	ti.Prompt = ""
+	ti.Placeholder = "session name"
+	ti.SetValue(m.workspaces[ref].Name)
+	ti.CursorEnd()
+	ti.Focus()
+	m.labelInput = ti
+	return m, textinput.Blink
+}
+
+// updateLabel handles the naming prompt: enter opens the entry with the typed
+// label (blank falls back to the entry's name at open time), esc backs out.
+func (m pickerModel) updateLabel(msg tea.Msg) (tea.Model, tea.Cmd) {
+	key, ok := msg.(tea.KeyMsg)
+	if !ok {
+		if _, isMouse := msg.(tea.MouseMsg); isMouse {
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.labelInput, cmd = m.labelInput.Update(msg)
+		return m, cmd
+	}
+	switch key.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "esc":
+		m.mode = modeList
+		return m, nil
+	case "enter":
+		w := m.workspaces[m.labelRef]
+		m.chosen = &w
+		m.chosenLabel = strings.TrimSpace(m.labelInput.Value())
+		return m, tea.Quit
+	}
+	var cmd tea.Cmd
+	m.labelInput, cmd = m.labelInput.Update(msg)
+	return m, cmd
 }
 
 func (m pickerModel) enterAdd() (tea.Model, tea.Cmd) {
@@ -342,6 +402,16 @@ func (m pickerModel) View() string {
 		b.WriteString("\n\n")
 		b.WriteString(fmt.Sprintf("  Delete %q? Its file %s will be removed.\n\n", w.Name, w.source))
 		b.WriteString(footerStyle.Render("y delete · any other key cancels"))
+	case modeLabel:
+		w := m.workspaces[m.labelRef]
+		b.WriteString(titleStyle.Render("Workspaces · name"))
+		b.WriteString("\n\n")
+		b.WriteString("  " + descStyle.Render(w.displayDir()) + "\n\n")
+		b.WriteString("  ")
+		b.WriteString(labelSel.Render(fmt.Sprintf("%-12s", "name")))
+		b.WriteString(m.labelInput.View())
+		b.WriteString("\n\n")
+		b.WriteString(footerStyle.Render("enter open · esc back"))
 	default:
 		b.WriteString(titleStyle.Render("Workspaces"))
 		b.WriteString("\n\n")
@@ -357,7 +427,7 @@ func (m pickerModel) View() string {
 			if m.filtering {
 				b.WriteString(footerStyle.Render("enter open · esc done filtering"))
 			} else {
-				b.WriteString(footerStyle.Render("enter open · / filter · a add · e edit · d delete · q close"))
+				b.WriteString(footerStyle.Render("enter open · → name · / filter · a add · e edit · d delete · q close"))
 			}
 		}
 	}

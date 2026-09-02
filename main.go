@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 func usage(w *os.File) {
 	fmt.Fprintln(w, `usage: herdr-workspaces <command>
@@ -25,6 +25,7 @@ func usage(w *os.File) {
                  and an empty value clears the field
   remove <name>  Delete a workspace's config file
   open <name>    Open a registered workspace now (requires herdr)
+    --label        workspace label for this session (default: the entry's name)
   version        Print the version`)
 }
 
@@ -56,11 +57,7 @@ func main() {
 			}
 		}
 	case "open":
-		if len(os.Args) < 3 {
-			err = fmt.Errorf("open: workspace name required")
-		} else {
-			err = cmdOpen(os.Args[2])
-		}
+		err = cmdOpen(os.Args[2:])
 	case "version":
 		fmt.Println(version)
 	case "help", "-h", "--help":
@@ -193,19 +190,35 @@ func cmdEdit(args []string) error {
 	return fmt.Errorf("no workspace named %q; see `herdr-workspaces list`", target)
 }
 
-func cmdOpen(name string) error {
+func cmdOpen(args []string) error {
+	fs := flag.NewFlagSet("open", flag.ExitOnError)
+	label := fs.String("label", "", "workspace label for this session (default: the entry's name)")
+	var target string
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		target, args = args[0], args[1:]
+	}
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	switch {
+	case target == "" && fs.NArg() == 1:
+		target = fs.Arg(0)
+	case target == "" || fs.NArg() != 0:
+		return fmt.Errorf("open: exactly one workspace name required")
+	}
+
 	workspaces, err := loadWorkspaces()
 	if err != nil {
 		return err
 	}
 	for _, w := range workspaces {
-		if w.Name == name {
+		if w.Name == target {
 			client, err := newHerdrClient()
 			if err != nil {
 				return err
 			}
-			return openWorkspace(client, w)
+			return openWorkspace(client, w, strings.TrimSpace(*label))
 		}
 	}
-	return fmt.Errorf("no workspace named %q; see `herdr-workspaces list`", name)
+	return fmt.Errorf("no workspace named %q; see `herdr-workspaces list`", target)
 }
