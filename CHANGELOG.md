@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - `enter` on an entry whose workspace is already open switches to it instead
   of opening a second one with the same label (the lowest-numbered one when
-  several share it). `→` still opens a new session, as does `open` from the
-  CLI.
+  several share it). `→` still opens a new session.
+- `open <name>` from the CLI does the same: it switches to a workspace already
+  open under that exact name, and opens one only when none is.
+  `open --label <label>` still always opens a new session.
 
 ## 0.3.0
 

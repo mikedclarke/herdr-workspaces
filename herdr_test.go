@@ -247,3 +247,27 @@ func TestOpenWorkspaceCreatesWhenNoneOpenOrANewSessionIsAsked(t *testing.T) {
 		t.Fatalf("calls = %s, want a new workspace without a lookup", got)
 	}
 }
+
+func TestCmdOpenSwitchesUnlessALabelIsPassed(t *testing.T) {
+	dir := withConfigDir(t)
+	writeWorkspaceFile(t, dir, "beta.toml", "name = \"beta\"\ndir = \""+t.TempDir()+"\"\n")
+	open := []map[string]any{{"workspace_id": "w3", "number": 3, "label": "beta"}}
+
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"beta"}, "workspace.list,workspace.focus"},
+		{[]string{"beta", "--label", "beta"}, "workspace.create"},
+		{[]string{"--label", "", "beta"}, "workspace.create"},
+	} {
+		s := openStub(t, open)
+		t.Setenv("HERDR_SOCKET_PATH", s.path)
+		if err := cmdOpen(tc.args); err != nil {
+			t.Fatalf("%v: %v", tc.args, err)
+		}
+		if got := strings.Join(methods(s.recorded()), ","); got != tc.want {
+			t.Fatalf("%v: calls = %s, want %s", tc.args, got, tc.want)
+		}
+	}
+}

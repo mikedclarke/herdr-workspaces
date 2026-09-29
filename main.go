@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const version = "0.3.0"
+const version = "0.4.0"
 
 func usage(w *os.File) {
 	fmt.Fprintln(w, `usage: herdr-workspaces <command>
@@ -24,8 +24,10 @@ func usage(w *os.File) {
                  change (--name --dir --description --group --command),
                  and an empty value clears the field
   remove <name>  Delete a workspace's config file
-  open <name>    Open a registered workspace now (requires herdr)
-    --label        workspace label for this session (default: the entry's name)
+  open <name>    Open a registered workspace now, or switch to it when a
+                 workspace with its name is already open (requires herdr)
+    --label        open a new session under this label (default: the
+                   entry's name), even when one is already open
   version        Print the version`)
 }
 
@@ -192,7 +194,7 @@ func cmdEdit(args []string) error {
 
 func cmdOpen(args []string) error {
 	fs := flag.NewFlagSet("open", flag.ExitOnError)
-	label := fs.String("label", "", "workspace label for this session (default: the entry's name)")
+	label := fs.String("label", "", "open a new session under this label (default: the entry's name)")
 	var target string
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		target, args = args[0], args[1:]
@@ -206,6 +208,10 @@ func cmdOpen(args []string) error {
 	case target == "" || fs.NArg() != 0:
 		return fmt.Errorf("open: exactly one workspace name required")
 	}
+	// Passing --label at all asks for a new session, as the picker's naming
+	// prompt does; without it an already-open workspace is focused.
+	newSession := false
+	fs.Visit(func(f *flag.Flag) { newSession = newSession || f.Name == "label" })
 
 	workspaces, err := loadWorkspaces()
 	if err != nil {
@@ -217,7 +223,7 @@ func cmdOpen(args []string) error {
 			if err != nil {
 				return err
 			}
-			return openWorkspace(client, w, strings.TrimSpace(*label), true)
+			return openWorkspace(client, w, strings.TrimSpace(*label), newSession)
 		}
 	}
 	return fmt.Errorf("no workspace named %q; see `herdr-workspaces list`", target)

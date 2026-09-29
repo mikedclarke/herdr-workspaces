@@ -60,7 +60,7 @@ While filtering, Enter opens the top match directly, and Esc leaves the filter a
 
 ### Naming a session
 
-`enter` opens a workspace labeled with the entry's name, or switches to it when a workspace with that label is already open (the lowest-numbered one if there are several), so a second press never makes a duplicate. When you want a second session in the same directory, press `→` on the entry instead: a one-line prompt opens, prefilled with the entry's name and the cursor at the end, so you can tack on a suffix like `-2` and press Enter. The label applies to this session only; the registered entry is untouched. Clearing the prompt and pressing Enter falls back to the entry's name, and still opens a new session.
+`enter` opens a workspace labeled with the entry's name, or switches to it when a workspace with that label is already open (the lowest-numbered one if there are several), so a second press never makes a duplicate. When you want a second session in the same directory, press `→` on the entry instead: a one-line prompt opens, prefilled with the entry's name and the cursor at the end, so you can tack on a suffix like `-2` and press Enter. The label applies to this session only; the registered entry is untouched. Clearing the prompt and pressing Enter falls back to the entry's name, and still opens a new session. From the CLI, `open <name>` behaves like `enter` and `open <name> --label <label>` like `→`.
 
 The startup command is typed into the new workspace's root pane the way you would type it: the plugin waits for the shell prompt, types the command, waits for it to echo, and submits it with a real Enter, so it runs instead of sitting at the prompt.
 
@@ -88,7 +88,7 @@ herdr-workspaces list          # registered workspaces
 herdr-workspaces add <dir>     # register a directory (--name --description --group --command)
 herdr-workspaces edit <name>   # change an entry; only the flags you pass change
 herdr-workspaces remove <name> # delete an entry's config file
-herdr-workspaces open <name>   # open one now, --label sets this session's name (needs herdr)
+herdr-workspaces open <name>   # open one now, or switch to it if open; --label opens a new named session (needs herdr)
 herdr-workspaces version
 ```
 
