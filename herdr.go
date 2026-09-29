@@ -89,6 +89,29 @@ func (c *herdrClient) workspaceCreate(cwd, label string, focus bool) (paneID str
 	return out.RootPane.PaneID, nil
 }
 
+// workspaceInfo is one open workspace as workspace.list reports it.
+type workspaceInfo struct {
+	ID     string `json:"workspace_id"`
+	Number int    `json:"number"`
+	Label  string `json:"label"`
+}
+
+// workspaceList returns every open workspace.
+func (c *herdrClient) workspaceList() ([]workspaceInfo, error) {
+	var out struct {
+		Workspaces []workspaceInfo `json:"workspaces"`
+	}
+	if err := c.call("workspace.list", map[string]any{}, &out); err != nil {
+		return nil, err
+	}
+	return out.Workspaces, nil
+}
+
+// workspaceFocus switches the user to an open workspace.
+func (c *herdrClient) workspaceFocus(id string) error {
+	return c.call("workspace.focus", map[string]any{"workspace_id": id}, nil)
+}
+
 // sendInput types text into a pane and then presses the given keys, as if at
 // the keyboard. To run a shell command, pass the command as text and "Enter"
 // as the sole key: herdr pastes text, and once the shell's line editor is

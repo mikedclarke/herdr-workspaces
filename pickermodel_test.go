@@ -52,6 +52,9 @@ func TestPickerEnterChooses(t *testing.T) {
 	if m.chosen == nil || m.chosen.Name != "beta" {
 		t.Fatalf("chosen = %+v, want beta", m.chosen)
 	}
+	if m.newSession {
+		t.Fatal("enter asked for a new session; it should reuse an open one")
+	}
 }
 
 func TestPickerQuitKeys(t *testing.T) {
@@ -81,6 +84,9 @@ func TestPickerRightArrowNamesSession(t *testing.T) {
 	}
 	if m.chosenLabel != "beta-2" {
 		t.Fatalf("chosenLabel = %q, want beta-2", m.chosenLabel)
+	}
+	if !m.newSession {
+		t.Fatal("naming a session should always open a new one")
 	}
 }
 

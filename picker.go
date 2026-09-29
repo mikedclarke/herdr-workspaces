@@ -69,10 +69,23 @@ func runPicker(hosted bool) error {
 	if err != nil {
 		return holdError(hosted, err)
 	}
-	if err := openWorkspace(client, *m.chosen, m.chosenLabel); err != nil {
+	if err := openWorkspace(client, *m.chosen, m.chosenLabel, m.newSession); err != nil {
 		return holdError(hosted, fmt.Errorf("open workspace %q: %w", m.chosen.Name, err))
 	}
 	return nil
+}
+
+// workspaceLabeled finds the open workspace carrying label exactly; when
+// several do, the lowest-numbered one.
+func workspaceLabeled(open []workspaceInfo, label string) (workspaceInfo, bool) {
+	var best workspaceInfo
+	found := false
+	for _, ws := range open {
+		if ws.Label == label && (!found || ws.Number < best.Number) {
+			best, found = ws, true
+		}
+	}
+	return best, found
 }
 
 // holdError keeps a hosted pane alive until Enter so the error is readable;
@@ -94,7 +107,9 @@ func holdError(hosted bool, err error) error {
 // root pane. Creating the focused workspace switches the user to it. label is
 // this session's workspace label; empty falls back to the entry's name, so a
 // second session in the same directory can be named apart from the first.
-func openWorkspace(client *herdrClient, w Workspace, label string) error {
+// Unless newSession is set, a workspace already open under that label is
+// focused instead of opening a second one with the same name.
+func openWorkspace(client *herdrClient, w Workspace, label string, newSession bool) error {
 	dir, err := w.expandedDir()
 	if err != nil {
 		return err
@@ -104,6 +119,18 @@ func openWorkspace(client *herdrClient, w Workspace, label string) error {
 	}
 	if label == "" {
 		label = w.Name
+	}
+	if !newSession {
+		open, err := client.workspaceList()
+		if err != nil {
+			return fmt.Errorf("list workspaces: %w", err)
+		}
+		if found, ok := workspaceLabeled(open, label); ok {
+			if err := client.workspaceFocus(found.ID); err != nil {
+				return fmt.Errorf("focus workspace: %w", err)
+			}
+			return nil
+		}
 	}
 	paneID, err := client.workspaceCreate(dir, label, true)
 	if err != nil {

@@ -41,8 +41,12 @@ type pickerModel struct {
 	// chosenLabel overrides the herdr workspace label for this open only,
 	// leaving the entry's stored name untouched. Empty means use the name.
 	chosenLabel string
-	width       int
-	height      int
+	// newSession is set by the naming prompt: open another workspace even
+	// when one with the label is already open. Plain enter leaves it unset,
+	// so an open workspace is focused instead.
+	newSession bool
+	width      int
+	height     int
 }
 
 func newPickerModel(workspaces []Workspace) pickerModel {
@@ -263,6 +267,7 @@ func (m pickerModel) updateLabel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		w := m.workspaces[m.labelRef]
 		m.chosen = &w
 		m.chosenLabel = strings.TrimSpace(m.labelInput.Value())
+		m.newSession = true
 		return m, tea.Quit
 	}
 	var cmd tea.Cmd

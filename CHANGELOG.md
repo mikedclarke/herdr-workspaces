@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `enter` on an entry whose workspace is already open switches to it instead
+  of opening a second one with the same label (the lowest-numbered one when
+  several share it). `→` still opens a new session, as does `open` from the
+  CLI.
+
 ## 0.3.0
 
 - Name a session on open: press `→` (right arrow) on a picker entry for a

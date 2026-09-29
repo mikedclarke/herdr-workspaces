@@ -184,3 +184,66 @@ func TestNewHerdrClientRequiresSocket(t *testing.T) {
 		t.Fatalf("err = %v, want HERDR_SOCKET_PATH message", err)
 	}
 }
+
+func openStub(t *testing.T, open []map[string]any) *stubHerdr {
+	return newStubHerdr(t, func(method string, params map[string]any) (any, *herdrError) {
+		switch method {
+		case "workspace.list":
+			return map[string]any{"type": "workspace_list", "workspaces": open}, nil
+		case "workspace.focus":
+			return map[string]any{"type": "ok"}, nil
+		case "workspace.create":
+			return map[string]any{"root_pane": map[string]any{"pane_id": "p9"}}, nil
+		}
+		return nil, &herdrError{Code: "unexpected", Message: method}
+	})
+}
+
+func methods(calls []stubCall) []string {
+	var out []string
+	for _, c := range calls {
+		out = append(out, c.Method)
+	}
+	return out
+}
+
+func TestOpenWorkspaceFocusesTheOneAlreadyOpen(t *testing.T) {
+	s := openStub(t, []map[string]any{
+		{"workspace_id": "w7", "number": 7, "label": "beta"},
+		{"workspace_id": "w3", "number": 3, "label": "beta"},
+		{"workspace_id": "w1", "number": 1, "label": "beta-2"},
+	})
+	c := &herdrClient{socketPath: s.path}
+	w := Workspace{Name: "beta", Dir: t.TempDir()}
+	if err := openWorkspace(c, w, "", false); err != nil {
+		t.Fatal(err)
+	}
+	calls := s.recorded()
+	if got := strings.Join(methods(calls), ","); got != "workspace.list,workspace.focus" {
+		t.Fatalf("calls = %s, want list then focus", got)
+	}
+	if calls[1].Params["workspace_id"] != "w3" {
+		t.Fatalf("focused %v, want the lowest-numbered w3", calls[1].Params["workspace_id"])
+	}
+}
+
+func TestOpenWorkspaceCreatesWhenNoneOpenOrANewSessionIsAsked(t *testing.T) {
+	s := openStub(t, []map[string]any{{"workspace_id": "w1", "number": 1, "label": "beta-2"}})
+	c := &herdrClient{socketPath: s.path}
+	w := Workspace{Name: "beta", Dir: t.TempDir()}
+	if err := openWorkspace(c, w, "", false); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(methods(s.recorded()), ","); got != "workspace.list,workspace.create" {
+		t.Fatalf("calls = %s, want list then create", got)
+	}
+
+	s = openStub(t, []map[string]any{{"workspace_id": "w3", "number": 3, "label": "beta"}})
+	c = &herdrClient{socketPath: s.path}
+	if err := openWorkspace(c, w, "beta", true); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(methods(s.recorded()), ","); got != "workspace.create" {
+		t.Fatalf("calls = %s, want a new workspace without a lookup", got)
+	}
+}

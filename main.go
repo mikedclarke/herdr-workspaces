@@ -217,7 +217,7 @@ func cmdOpen(args []string) error {
 			if err != nil {
 				return err
 			}
-			return openWorkspace(client, w, strings.TrimSpace(*label))
+			return openWorkspace(client, w, strings.TrimSpace(*label), true)
 		}
 	}
 	return fmt.Errorf("no workspace named %q; see `herdr-workspaces list`", target)
